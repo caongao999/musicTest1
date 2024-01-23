@@ -1,4 +1,3 @@
-
 package mp3player;
 import java.awt.Color;
 import mp3player.Login;
@@ -7,7 +6,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.io.*;
-
 import javax.swing.AbstractButton;
 import javax.swing.DefaultListModel;
 import java.util.ArrayList;
@@ -38,93 +36,56 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import model.LoginModel;
 import model.Song;
+
 /**
  *
- * @author ali
+ * @author duyy
  */
 public class playmp3 extends javax.swing.JFrame {
     public LoginModel user;
     Playlist pl = new Playlist();
-    ArrayList updateList = new ArrayList();
+   // ArrayList updateList = new ArrayList();
+    private List<Song> songs = new ArrayList<>();
     javazoom.jl.player.Player player;
     File simpan;
+    
     playmp3() {
         //getSongFromUser(user.getId());
         // view List<Song> lên textarea  (name, File)
         initComponents();
-       this.setIconImage(new ImageIcon(getClass().getResource("music-icon.png")).getImage());  
-        playlistevent();
-       
-//jLabel15 and jLabel16
-    }
-     
-/*void updateList() {
-        updateList = pl.getListSong();
-        DefaultListModel model =  new DefaultListModel();
-        //model.getSongFromUser(user.getId());
-        for (int i = 0; i < updateList.size(); i++) {
-            int j = i + 1;  
-            model.add(i, j + user.getUsername()+ " | " + ((File) updateList.get(i)).getName());
-        }
-        jPlaylist.setModel(model);
-
-    }
-
-public List<Song> getSongFromUser(int id){
-    List<Song> songs = updateList;
-    String url = "jdbc:mysql://localhost:3306/loginmusic";
-        String username = "root";
-        String password = "";
-
-        try (Connection connection = DriverManager.getConnection(url, username, password)) {
-    String sql = "select m from music as m "
-            + "inner join user_music as um on m.id= um.music_id"
-            + "inner join user as u on u.id = um.user_id"
-            + "where u.id = ?";
-    
-    try (PreparedStatement preparedStatement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-        preparedStatement.setInt(1, id);
+        this.setIconImage(new ImageIcon(getClass().getResource("music-icon.png")).getImage());  
         
-        ResultSet rs = preparedStatement.executeQuery(sql);
+        pl = new Playlist();
+        updateList();
+        playlistevent();
 
-        while(rs.next()){
-           songs.add(new Song(new File(rs.getString("url")),rs.getString("name")));
-        }
-  
-    }   catch (SQLException ex) {
-            Logger.getLogger(playmp3.class.getName()).log(Level.SEVERE, null, ex);
-        }} catch (SQLException ex) {
-            Logger.getLogger(playmp3.class.getName()).log(Level.SEVERE, null, ex);
-        }      
-        return songs;
-}*/
-    
+    }
     
     void upback() {
         
     }
     
-    void updateList() {
-    List<Song> userSongs = getSongFromUser(user.getId());
-
-    DefaultListModel<String> model = new DefaultListModel<>();
-
-    for (int i = 0; i < userSongs.size(); i++) {
+   void updateList() {
+    if (user != null) {
+        songs = getSongFromUser(user.getId());
+        DefaultListModel<String> model = new DefaultListModel<>();
+    
+    for (int i = 0; i < songs.size(); i++) {
         int j = i + 1;
-        model.addElement(j + " " + user.getUsername() + " | " + userSongs.get(i).getSonName());
+        model.addElement(j + " " + user.getUsername() + " | " + songs.get(i).getSonName());
     }
-
     jPlaylist.setModel(model);
 }
-
+   }
 public List<Song> getSongFromUser(int id) {
-    List<Song> songs = updateList;
+    List<Song> arsong = new ArrayList<>();
     String url = "jdbc:mysql://localhost:3306/loginmusic";
     String username = "root";
     String password = "";
-
+    
     try (Connection connection = DriverManager.getConnection(url, username, password)) {
         String sql = "SELECT m.* FROM music AS m "
                 + "INNER JOIN user_music AS um ON m.id = um.music_id "
@@ -135,9 +96,9 @@ public List<Song> getSongFromUser(int id) {
             preparedStatement.setInt(1, id);
 
             ResultSet rs = preparedStatement.executeQuery();
-
+            
             while (rs.next()) {
-                songs.add(new Song(new File(rs.getString("url")), rs.getString("name")));
+                arsong.add(new Song(new File(rs.getString("url")), rs.getString("name")));
             }
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -147,7 +108,7 @@ public List<Song> getSongFromUser(int id) {
         ex.printStackTrace();
         // Xử lý lỗi khi kết nối cơ sở dữ liệu
     }
-    return songs;
+    return arsong;
 }
 
 
@@ -199,66 +160,254 @@ public void SaveAndAddToDB(File file){
     ex.printStackTrace();
     JOptionPane.showMessageDialog(this, "Có lỗi xảy ra.", "Lỗi", JOptionPane.ERROR_MESSAGE);
 }
-
-    
     }catch(IOException e){
         e.printStackTrace();
         
     }
 }
-//panel kontrol
 
-public void callFile(ArrayList<File> list){
+    public void callFile(ArrayList<File> list){
     for(int i =0;i<list.size();i++){
-        SaveAndAddToDB(list.get(i));
+        saveToDatabase(list.get(i));
     };
 }
 
-void add() { //Thêm thông báo trùng lặp
+private File lastChosenDirectory; 
+//thêm và kiểm tra - đơn 
+void add() {
     JFileChooser fileChooser = new JFileChooser();
-    fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-
+    if (lastChosenDirectory != null) {
+        fileChooser.setCurrentDirectory(lastChosenDirectory);
+    }
+    FileNameExtensionFilter audioFilter = new FileNameExtensionFilter("Audio Files", "mp3", "wav", "ogg");
+    fileChooser.setFileFilter(audioFilter);
     int result = fileChooser.showOpenDialog(this);
-
     if (result == JFileChooser.APPROVE_OPTION) {
         File selectedFile = fileChooser.getSelectedFile();
-
-        if (pl.ls.contains(selectedFile)) {
-            int option = JOptionPane.showConfirmDialog(this, "Bài hát đã tồn tại. Bạn có muốn thay thế nó không?",
-                    "Tệp đã tồn tại", JOptionPane.YES_NO_OPTION);
-
-            if (option == JOptionPane.YES_OPTION) {
-
-                int index = pl.ls.indexOf(selectedFile);
-                pl.ls.set(index, selectedFile);
+        if (isAudioFile(selectedFile)) {
+            lastChosenDirectory = selectedFile.getParentFile();
+            
+            // Kiểm tra xem bài hát đã tồn tại trong cơ sở dữ liệu hay chưa
+            boolean isSongExistsInDatabase = isSongExistsInDatabase(selectedFile);
+            
+            if (pl.ls.contains(selectedFile)) {
+                int option = JOptionPane.showConfirmDialog(this, "Bài hát đã tồn tại. Bạn có muốn thay thế nó không?",
+                        "Tệp đã tồn tại", JOptionPane.YES_NO_OPTION);
+                if (option == JOptionPane.YES_OPTION) {
+                    int index = pl.ls.indexOf(selectedFile);
+                    pl.ls.set(index, selectedFile);
+                }
+            } else {
+                pl.ls.add(selectedFile);
+                
+                if (!isSongExistsInDatabase) {
+                    // Bài hát chưa tồn tại trong cơ sở dữ liệu, lưu vào cơ sở dữ liệu
+                    saveToDatabase(selectedFile);
+                }             
+                updateList();
             }
         } else {
-            pl.ls.add(selectedFile);
-            callFile(pl.ls);
+            JOptionPane.showMessageDialog(this, "Định dạng tệp không hợp lệ: " + selectedFile.getName(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+}
+
+void saveToDatabase(File file) {
+    System.out.println("Running...");
+
+    try {
+        String url = "jdbc:mysql://localhost:3306/loginmusic";
+        String username = "root";
+        String password = "";
+
+        try (Connection connection = DriverManager.getConnection(url, username, password)) {
+            String sql = "INSERT INTO music (name, url) VALUES (?, ?)";
+
+            try (PreparedStatement preparedStatement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                preparedStatement.setString(1, file.getName());
+                preparedStatement.setString(2, file.getAbsolutePath()); // Lưu đường dẫn ban đầu của bài hát
+                System.out.println("Save done...");
+                int affectedRows = preparedStatement.executeUpdate();
+
+                if (affectedRows > 0) {
+                    // The music record was inserted successfully, retrieve the generated music_id
+                    try (ResultSet generatedKeys = preparedStatement.getGeneratedKeys()) {
+                        if (generatedKeys.next()) {
+                            int musicId = generatedKeys.getInt(1);
+
+                            // Now, insert into the user_music table
+                            sql = "INSERT INTO user_music (user_id, music_id) VALUES (?, ?)";
+                            try (PreparedStatement userMusicStatement = connection.prepareStatement(sql)) {
+                                userMusicStatement.setInt(1, user.getId()); // Replace userId with the actual user_id
+                                userMusicStatement.setInt(2, musicId);
+                                userMusicStatement.executeUpdate();
+                            }
+                        } else {
+                            // No generated keys, handle this case accordingly
+                            JOptionPane.showMessageDialog(this, "Đăng ký thất bại (Không có khóa sinh ra).", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                        }
+                    }
+                } else {
+                    // No rows affected, handle this case accordingly
+                    JOptionPane.showMessageDialog(this, "Đăng ký thất bại (Không có bản ghi được thêm vào).", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Có lỗi xảy ra.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
+//thêm từ thư mục 
+void addAllFilesInDirectory() {
+    JFileChooser fileChooser = new JFileChooser();
+    fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+    FileNameExtensionFilter audioFilter = new FileNameExtensionFilter("Audio Files", "mp3", "wav", "ogg");
+    fileChooser.setFileFilter(audioFilter);
+    int result = fileChooser.showOpenDialog(this);
+    if (result == JFileChooser.APPROVE_OPTION) {
+        File selectedDirectory = fileChooser.getSelectedFile();
+        File[] files = selectedDirectory.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile() && isAudioFile(file)) {
+                    if (!pl.ls.contains(file)) {
+                        // Kiểm tra xem bài hát đã tồn tại trong cơ sở dữ liệu hay chưa
+                        boolean isSongExistsInDatabase = isSongExistsInDatabase(file);
+                        
+                        if (!isSongExistsInDatabase) {
+                            // Bài hát chưa tồn tại trong cơ sở dữ liệu, thêm vào cả danh sách và cơ sở dữ liệu
+                            pl.ls.add(file);
+                            saveToDatabase(file);
+                        } else {
+                            // Bài hát đã tồn tại trong cơ sở dữ liệu, thêm vào danh sách
+                            pl.ls.add(file);
+                        }
+                    }
+                }
+            }
             updateList();
         }
     }
+}
+
+private boolean isSongExistsInDatabase(File file) {
+    // Thực hiện kiểm tra xem bài hát đã tồn tại trong cơ sở dữ liệu hay chưa
+    // Điều này có thể được thực hiện bằng cách kiểm tra đường dẫn của bài hát trong cơ sở dữ liệu
     
+    String url = "jdbc:mysql://localhost:3306/loginmusic";
+    String username = "root";
+    String password = "";
+    
+    try (Connection connection = DriverManager.getConnection(url, username, password)) {
+        String sql = "SELECT * FROM music WHERE url = ?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            preparedStatement.setString(1, file.getAbsolutePath());
+            ResultSet rs = preparedStatement.executeQuery();
+            return rs.next(); // Nếu có dữ liệu trả về, bài hát đã tồn tại trong cơ sở dữ liệu
+        }
+    } catch (SQLException ex) {
+        ex.printStackTrace();
+        return false;
+    }
+}
+//kiểm tra định dạng
+private boolean isAudioFile(File file) {
+    String fileName = file.getName().toLowerCase();
+    return fileName.endsWith(".mp3") || fileName.endsWith(".wav") || fileName.endsWith(".ogg");
 }
 
 
-void remove(){
-    try{
+void remove() {
+    try {
         int akandihapus = jPlaylist.getLeadSelectionIndex();
         pl.ls.remove(akandihapus);
+        // Cần cập nhật cả cơ sở dữ liệu khi xóa bài hát khỏi danh sách
+        removeFromDatabase(akandihapus);
         updateList();
-    }catch(Exception e){
+    } catch (Exception e) {
+        e.printStackTrace();
     }
+}
+
+private void removeFromDatabase(int index) {
+    try {
+        int musicIdToRemove = getMusicIdAtIndex(index);
+        if (musicIdToRemove != -1) {
+            String url = "jdbc:mysql://localhost:3306/loginmusic";
+            String username = "root";
+            String password = "";
+
+            try (Connection connection = DriverManager.getConnection(url, username, password)) {
+                // Xóa bản ghi từ bảng user_music
+                String deleteMusicQuery = "DELETE FROM user_music WHERE user_id = ? AND music_id = ?";
+                try (PreparedStatement deleteStatement = connection.prepareStatement(deleteMusicQuery)) {
+                    deleteStatement.setInt(1, user.getId());
+                    deleteStatement.setInt(2, musicIdToRemove);
+                    deleteStatement.executeUpdate();
+                }
+
+                // Kiểm tra xem bài hát có được sử dụng bởi người dùng khác không trước khi xóa nó khỏi bảng music
+                String checkUsageQuery = "SELECT COUNT(*) FROM user_music WHERE music_id = ?";
+                try (PreparedStatement checkStatement = connection.prepareStatement(checkUsageQuery)) {
+                    checkStatement.setInt(1, musicIdToRemove);
+                    ResultSet result = checkStatement.executeQuery();
+                    result.next();
+                    int usageCount = result.getInt(1);
+
+                    // Nếu bài hát không được sử dụng bởi bất kỳ người dùng nào, xóa nó khỏi bảng music
+                    if (usageCount == 0) {
+                        String deleteMusicQueryFinal = "DELETE FROM music WHERE id = ?";
+                        try (PreparedStatement deleteMusicStatement = connection.prepareStatement(deleteMusicQueryFinal)) {
+                            deleteMusicStatement.setInt(1, musicIdToRemove);
+                            deleteMusicStatement.executeUpdate();
+                        }
+                    }
+                }
+            }
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+}
+
+private int getMusicIdAtIndex(int index) {
+    if (index >= 0 && index < pl.ls.size()) {
+        File selectedFile = (File) pl.ls.get(index);
+        String url = selectedFile.getAbsolutePath();
+
+        String query = "SELECT id FROM music WHERE url = ?";
+        try (Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/loginmusic", "root", "");
+             PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+            preparedStatement.setString(1, url);
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    return resultSet.getInt("id");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    return -1; // Trả về -1 nếu có lỗi hoặc index không hợp lệ
 }
 
 void up(){
     try{
-        int s1 = jPlaylist.getLeadSelectionIndex();
-        simpan = (File) pl.ls.get(s1);
-        pl.ls.remove(s1);
-        pl.ls.add(s1 - 1, simpan );
+       int s1 = jPlaylist.getLeadSelectionIndex();
+if (!pl.ls.isEmpty() && s1 >= 0 && s1 < pl.ls.size()) {
+    simpan = (File) pl.ls.get(s1);
+    pl.ls.remove(s1);
+    if (s1 - 1 >= 0) {
+        pl.ls.add(s1 - 1, simpan);
         updateList();
-        jPlaylist.setSelectedIndex(s1-1);
+        jPlaylist.setSelectedIndex(s1 - 1);
+    }
+}
     }catch(Exception e){
     }
 }
@@ -288,34 +437,32 @@ void save(){
 File play1;
 static int a = 0;
 
-void putar(){
-    if(a==0){
-        try{
+void putar() {
+    if (a == 0) {
+        try {
             int p1 = jPlaylist.getSelectedIndex();
-            play1 = (File) this.updateList.get(p1);
+            play1 = (File) pl.ls.get(p1);  // Sử dụng danh sách pl.ls thay vì this.updateList
             FileInputStream fis = new FileInputStream(play1);
             BufferedInputStream bis = new BufferedInputStream(fis);
             player = new javazoom.jl.player.Player(bis);
-            a =1;
-        }catch(Exception e){
+            a = 1;
+        } catch (Exception e) {
             System.out.println("Problem playing file");
             System.out.println(e);
         }
-        
-        new Thread(){
+
+        new Thread() {
             @Override
-            public void run(){
-                try{
+            public void run() {
+                try {
                     player.play();
-                
-            }catch (Exception e){
+                } catch (Exception e) {
+                }
             }
-        }
-    }.start();
-    }else{
+        }.start();
+    } else {
         player.close();
-        
-        a=0;
+        a = 0;
         putar();
     }
 }
@@ -481,6 +628,9 @@ void playlistevent() {//MouseEvent cho Playlist
         OpenInfor = new javax.swing.JLabel();
         jLabel2 = new javax.swing.JLabel();
         OpenMenu = new javax.swing.JLabel();
+        searchfield = new javax.swing.JTextField();
+        jProgressBar1 = new javax.swing.JProgressBar();
+        jButton1 = new javax.swing.JButton();
 
         jButton2.setText("jButton2");
 
@@ -546,23 +696,7 @@ void playlistevent() {//MouseEvent cho Playlist
         jPanel2.add(jTextField2, new org.netbeans.lib.awtextra.AbsoluteConstraints(120, 50, 140, 20));
 
         InforPage.add(jPanel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(20, 110, 310, 130));
-        searchfield = new PlaceholderTextField("Search");//PlaceHolder
-        searchfield.getDocument().addDocumentListener(new DocumentListener() {//Tính năng tìm Kiếm
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-            	updatePlaylist();
-            }
 
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-            	updatePlaylist();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {        
-            }
-        });
-        
         jPanel3.setBackground(new java.awt.Color(204, 204, 255));
         jPanel3.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
 
@@ -697,13 +831,24 @@ void playlistevent() {//MouseEvent cho Playlist
             }
         });
         getContentPane().add(OpenMenu, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 10, 40, 30));
+
+        searchfield.setText("Tìm kiếm");
         getContentPane().add(searchfield, new org.netbeans.lib.awtextra.AbsoluteConstraints(260, 30, 540, 40));
+        getContentPane().add(jProgressBar1, new org.netbeans.lib.awtextra.AbsoluteConstraints(420, 460, 220, -1));
+
+        jButton1.setText("Làm mới");
+        jButton1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton1ActionPerformed(evt);
+            }
+        });
+        getContentPane().add(jButton1, new org.netbeans.lib.awtextra.AbsoluteConstraints(10, 90, -1, -1));
 
         setSize(new java.awt.Dimension(1075, 563));
         setLocationRelativeTo(null);
     }// </editor-fold>//GEN-END:initComponents
     
-    private void updatePlaylist() {//Tính năng tìm kiếm
+    /*private void updatePlaylist() {//Tính năng tìm kiếm
         String searchTerm = searchfield.getText().toLowerCase(); 
         DefaultListModel model = new DefaultListModel();
 
@@ -717,7 +862,7 @@ void playlistevent() {//MouseEvent cho Playlist
         }
 
         jPlaylist.setModel(model);
-    }
+    }*/
 
 
     private void btnAddActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAddActionPerformed
@@ -787,6 +932,11 @@ OpenInfor();
     private void jTextField1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jTextField1ActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_jTextField1ActionPerformed
+
+    private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
+        // TODO add your handling code here:
+        updateList();
+    }//GEN-LAST:event_jButton1ActionPerformed
     
     
     /**
@@ -865,6 +1015,8 @@ OpenInfor();
             
         }).start();
     } 
+     
+     //hiển thị
      public playmp3(String tenTaiKhoan, String matKhau) {
          initComponents(); // Gọi constructor mặc định
          jTextField1.setText(tenTaiKhoan);
@@ -882,6 +1034,7 @@ OpenInfor();
     private javax.swing.JButton btnDown;
     private javax.swing.JButton btnRemove;
     private javax.swing.JButton btnUp;
+    private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
     private javax.swing.JButton jButton3;
     private javax.swing.JButton jButton5;
@@ -902,6 +1055,7 @@ OpenInfor();
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JList<String> jPlaylist;
+    private javax.swing.JProgressBar jProgressBar1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JSeparator jSeparator1;
     private javax.swing.JTextField jTextField1;
@@ -957,22 +1111,4 @@ class PlaceholderTextField extends JTextField implements FocusListener, CaretLis
         repaint();
     }
 }
-
-//tình trạng : không dùng
-class CustomDefaultTableModel extends DefaultTableModel {
-    public CustomDefaultTableModel(Object[][] data, Object[] columnNames) {
-        super(data, columnNames);
-    }
-    @Override
-    public int getRowCount() {
-        int rowCount = super.getRowCount();
-        for (int i = 0; i < super.getRowCount(); i++) {
-            if (getValueAt(i, 0) == null) {
-                rowCount--;
-            }
-        }
-        return rowCount;
-    }
-}
-
 
